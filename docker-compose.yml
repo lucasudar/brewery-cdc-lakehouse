@@ -1,0 +1,136 @@
+# Postgres ──CDC (Debezium)──▶ Redpanda ──▶ ingestor ──▶ Iceberg (REST catalog + SeaweedFS S3) ──▶ dbt ──▶ FastAPI
+# All images are multi-arch (linux/arm64 + linux/amd64) and pinned.
+
+x-s3-env: &s3-env
+  AWS_ACCESS_KEY_ID: lakehouse
+  AWS_SECRET_ACCESS_KEY: lakehouse-secret
+  AWS_REGION: us-east-1
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: source-postgres
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=10", "-c", "max_wal_senders=10"]
+    environment:
+      POSTGRES_USER: novisto
+      POSTGRES_PASSWORD: novisto
+      POSTGRES_DB: brewery
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./data:/data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U novisto -d brewery"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redpanda:
+    image: redpandadata/redpanda:v25.3.18
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=1G
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  connect:
+    image: quay.io/debezium/connect:3.3.1.Final
+    container_name: connect
+    depends_on:
+      redpanda: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    environment:
+      BOOTSTRAP_SERVERS: redpanda:9092
+      GROUP_ID: lakehouse-connect
+      CONFIG_STORAGE_TOPIC: _connect_configs
+      OFFSET_STORAGE_TOPIC: _connect_offsets
+      STATUS_STORAGE_TOPIC: _connect_status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      # JSON with embedded schemas: the sink gets column types (incl. source NUMERIC precision)
+      # without a schema registry, which also makes ADD COLUMN visible downstream.
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "true"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "true"
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 5000
+      HEAP_OPTS: -Xms256m -Xmx768m
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/connectors >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  connect-init:
+    image: quay.io/debezium/connect:3.3.1.Final
+    container_name: connect-init
+    depends_on:
+      connect: { condition: service_healthy }
+    entrypoint: ["/bin/sh", "/config/register.sh"]
+    volumes:
+      - ./infra/connect:/config:ro
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.51
+    container_name: seaweedfs
+    command: ["mini", "-dir=/data", "-bucket=warehouse", "-s3.config=/etc/seaweedfs/s3.json", "-master.telemetry=false", "-admin.ui=false"]
+    ports:
+      - "8333:8333"
+    volumes:
+      - seaweedfs-data:/data
+      - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  iceberg-rest:
+    image: apache/iceberg-rest-fixture:1.10.1
+    container_name: iceberg-rest
+    depends_on:
+      seaweedfs: { condition: service_healthy }
+    environment:
+      <<: *s3-env
+      CATALOG_WAREHOUSE: s3://warehouse/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://seaweedfs:8333
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+      # Persist catalog state across restarts (the fixture defaults to in-memory sqlite).
+      CATALOG_URI: jdbc:sqlite:file:/home/iceberg/iceberg_catalog.db
+      CATALOG_JDBC_USER: iceberg
+      CATALOG_JDBC_PASSWORD: iceberg
+    ports:
+      - "8181:8181"
+    volumes:
+      - iceberg-catalog:/home/iceberg  # image dir is owned by uid 1000, so the named volume inherits it
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8181/v1/config >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  redpanda-data:
+  seaweedfs-data:
+  iceberg-catalog:

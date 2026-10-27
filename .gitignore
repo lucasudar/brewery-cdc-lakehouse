@@ -1,0 +1,20 @@
+# Reviewer-only materials — do NOT share with candidates
+reviewer/
+proposal.md
+jobposting.md
+search.md
+expected_result/
+
+# Python / tooling
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# dbt
+transform/target/
+transform/logs/
+transform/dbt_packages/
