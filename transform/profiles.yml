@@ -1,0 +1,26 @@
+lakehouse:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', ':memory:') }}"  # models are views/parquet; nothing to persist
+      threads: 4
+      extensions: [httpfs, iceberg]
+      settings:
+        TimeZone: UTC
+      secrets:
+        - type: s3
+          key_id: "{{ env_var('AWS_ACCESS_KEY_ID', 'lakehouse') }}"
+          secret: "{{ env_var('AWS_SECRET_ACCESS_KEY', 'lakehouse-secret') }}"
+          region: "{{ env_var('AWS_REGION', 'us-east-1') }}"
+          endpoint: "{{ env_var('S3_ENDPOINT', 'http://localhost:8333') | replace('http://', '') }}"
+          url_style: path
+          use_ssl: false
+      attach:
+        - path: warehouse
+          alias: lake
+          type: iceberg
+          read_only: true
+          options:
+            endpoint: "{{ env_var('CATALOG_URI', 'http://localhost:8181') }}"
+            authorization_type: none

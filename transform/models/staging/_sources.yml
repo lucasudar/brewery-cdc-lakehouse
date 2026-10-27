@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: silver
+    description: Current state of the Postgres source tables, maintained by the CDC ingestor (Iceberg).
+    database: lake
+    schema: silver
+    tables:
+      - name: beer_factory
+        description: One row per production batch.
+      - name: novisto_consumption
+        description: One row per consumption event (hard deletes in the source are removed here too).

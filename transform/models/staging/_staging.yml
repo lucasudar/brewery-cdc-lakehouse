@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: stg_beer_factory
+    description: Production batches, renamed and typed.
+    columns:
+      - name: beer_id
+        data_tests: [unique, not_null]
+      - name: style
+        data_tests: [not_null]
+      - name: abv_pct
+        data_tests: [not_null, non_negative]
+      - name: factory_site
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["Montreal", "Quebec City", "Sherbrooke"]
+              config:
+                severity: warn
+
+  - name: stg_novisto_consumption
+    description: Consumption events with the UTC consumption date.
+    columns:
+      - name: consumption_id
+        data_tests: [unique, not_null]
+      - name: beer_id
+        data_tests:
+          - not_null
+          # The FK holds in Postgres, but the two tables are separate CDC streams and can be
+          # momentarily out of step, so this warns instead of blocking the publish.
+          - relationships:
+              arguments:
+                to: ref('stg_beer_factory')
+                field: beer_id
+              config:
+                severity: warn
+      - name: quantity_l
+        data_tests: [not_null, non_negative]
+      - name: office
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["Montreal", "Toronto", "Paris", "London"]
+              config:
+                severity: warn

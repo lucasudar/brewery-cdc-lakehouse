@@ -2,7 +2,7 @@ SHELL := /bin/bash
 COMPOSE := docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help up down reset ps logs topics test lint
+.PHONY: help up down reset ps logs topics test lint dbt-build
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -30,3 +30,7 @@ test: ## Run unit + integration tests (no Docker needed)
 
 lint: ## Ruff lint + format check
 	cd services/ingestor && uv run --frozen ruff check src tests && uv run --frozen ruff format --check src tests
+	cd transform && uv run --frozen ruff check src && uv run --frozen ruff format --check src
+
+dbt-build: ## Run dbt models + data tests inside the transformer container (current snapshots)
+	$(COMPOSE) exec -e MART_OUTPUT_DIR=/tmp/adhoc transformer sh -c "mkdir -p /tmp/adhoc && dbt build --profiles-dir ."

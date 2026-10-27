@@ -149,6 +149,18 @@ services:
     restart: unless-stopped
     mem_limit: 512m
 
+  transformer:
+    build: ./transform
+    image: lakehouse/transformer:local
+    container_name: transformer
+    depends_on:
+      ingestor: { condition: service_healthy }
+    environment:
+      <<: *lakehouse-env
+      POLL_INTERVAL_S: "5"
+    restart: unless-stopped
+    mem_limit: 1g
+
 volumes:
   redpanda-data:
   seaweedfs-data:

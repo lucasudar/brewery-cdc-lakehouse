@@ -1,0 +1,24 @@
+name: lakehouse
+version: "1.0.0"
+profile: lakehouse
+config-version: 2
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "logs"]
+
+vars:
+  # Iceberg snapshot ids to read; set by the runner so every build is reproducible.
+  # Empty -> read the current snapshot (handy for ad-hoc `dbt build`).
+  beer_factory_snapshot_id: ""
+  novisto_consumption_snapshot_id: ""
+
+models:
+  lakehouse:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: external
+      +format: parquet

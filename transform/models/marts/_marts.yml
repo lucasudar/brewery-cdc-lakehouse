@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: fct_daily_style_consumption
+    description: >
+      Litres consumed per UTC day, beer style and factory site. Consumption of a beer that is not
+      (yet) known in beer_factory is reported under style/site 'Unknown' rather than dropped.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [consumption_date, style, factory_site]
+    columns:
+      - name: consumption_date
+        data_tests: [not_null]
+      - name: style
+        data_tests: [not_null]
+      - name: litres_consumed
+        data_tests: [not_null, non_negative]
+      - name: consumption_events
+        data_tests: [not_null]
