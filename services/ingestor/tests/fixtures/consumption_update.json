@@ -1,0 +1,382 @@
+{
+ "key": {
+  "schema": {
+   "type": "struct",
+   "fields": [
+    {
+     "type": "int32",
+     "optional": false,
+     "default": 0,
+     "field": "consumption_id"
+    }
+   ],
+   "optional": false,
+   "name": "cdc.public.novisto_consumption.Key"
+  },
+  "payload": {
+   "consumption_id": 9999
+  }
+ },
+ "value": {
+  "schema": {
+   "type": "struct",
+   "fields": [
+    {
+     "type": "struct",
+     "fields": [
+      {
+       "type": "int32",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "INT4",
+        "__debezium.source.column.length": "10",
+        "__debezium.source.column.scale": "0",
+        "__debezium.source.column.name": "consumption_id"
+       },
+       "default": 0,
+       "field": "consumption_id"
+      },
+      {
+       "type": "int32",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "INT4",
+        "__debezium.source.column.length": "10",
+        "__debezium.source.column.scale": "0",
+        "__debezium.source.column.name": "beer_id"
+       },
+       "field": "beer_id"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "TEXT",
+        "__debezium.source.column.length": "2147483647",
+        "__debezium.source.column.scale": "0",
+        "__debezium.source.column.name": "employee_team"
+       },
+       "field": "employee_team"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "NUMERIC",
+        "__debezium.source.column.length": "5",
+        "__debezium.source.column.scale": "3",
+        "__debezium.source.column.name": "quantity_l"
+       },
+       "field": "quantity_l"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "name": "io.debezium.time.ZonedTimestamp",
+       "version": 1,
+       "parameters": {
+        "__debezium.source.column.type": "TIMESTAMPTZ",
+        "__debezium.source.column.length": "35",
+        "__debezium.source.column.scale": "6",
+        "__debezium.source.column.name": "consumed_at"
+       },
+       "field": "consumed_at"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "TEXT",
+        "__debezium.source.column.length": "2147483647",
+        "__debezium.source.column.scale": "0",
+        "__debezium.source.column.name": "office"
+       },
+       "field": "office"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "name": "io.debezium.time.ZonedTimestamp",
+       "version": 1,
+       "parameters": {
+        "__debezium.source.column.type": "TIMESTAMPTZ",
+        "__debezium.source.column.length": "35",
+        "__debezium.source.column.scale": "6",
+        "__debezium.source.column.name": "updated_at"
+       },
+       "default": "1970-01-01T00:00:00.000000Z",
+       "field": "updated_at"
+      }
+     ],
+     "optional": true,
+     "name": "cdc.public.novisto_consumption.Value",
+     "field": "before"
+    },
+    {
+     "type": "struct",
+     "fields": [
+      {
+       "type": "int32",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "INT4",
+        "__debezium.source.column.length": "10",
+        "__debezium.source.column.scale": "0",
+        "__debezium.source.column.name": "consumption_id"
+       },
+       "default": 0,
+       "field": "consumption_id"
+      },
+      {
+       "type": "int32",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "INT4",
+        "__debezium.source.column.length": "10",
+        "__debezium.source.column.scale": "0",
+        "__debezium.source.column.name": "beer_id"
+       },
+       "field": "beer_id"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "TEXT",
+        "__debezium.source.column.length": "2147483647",
+        "__debezium.source.column.scale": "0",
+        "__debezium.source.column.name": "employee_team"
+       },
+       "field": "employee_team"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "NUMERIC",
+        "__debezium.source.column.length": "5",
+        "__debezium.source.column.scale": "3",
+        "__debezium.source.column.name": "quantity_l"
+       },
+       "field": "quantity_l"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "name": "io.debezium.time.ZonedTimestamp",
+       "version": 1,
+       "parameters": {
+        "__debezium.source.column.type": "TIMESTAMPTZ",
+        "__debezium.source.column.length": "35",
+        "__debezium.source.column.scale": "6",
+        "__debezium.source.column.name": "consumed_at"
+       },
+       "field": "consumed_at"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "parameters": {
+        "__debezium.source.column.type": "TEXT",
+        "__debezium.source.column.length": "2147483647",
+        "__debezium.source.column.scale": "0",
+        "__debezium.source.column.name": "office"
+       },
+       "field": "office"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "name": "io.debezium.time.ZonedTimestamp",
+       "version": 1,
+       "parameters": {
+        "__debezium.source.column.type": "TIMESTAMPTZ",
+        "__debezium.source.column.length": "35",
+        "__debezium.source.column.scale": "6",
+        "__debezium.source.column.name": "updated_at"
+       },
+       "default": "1970-01-01T00:00:00.000000Z",
+       "field": "updated_at"
+      }
+     ],
+     "optional": true,
+     "name": "cdc.public.novisto_consumption.Value",
+     "field": "after"
+    },
+    {
+     "type": "struct",
+     "fields": [
+      {
+       "type": "string",
+       "optional": false,
+       "field": "version"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "field": "connector"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "field": "name"
+      },
+      {
+       "type": "int64",
+       "optional": false,
+       "field": "ts_ms"
+      },
+      {
+       "type": "string",
+       "optional": true,
+       "name": "io.debezium.data.Enum",
+       "version": 1,
+       "parameters": {
+        "allowed": "true,first,first_in_data_collection,last_in_data_collection,last,false,incremental"
+       },
+       "default": "false",
+       "field": "snapshot"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "field": "db"
+      },
+      {
+       "type": "string",
+       "optional": true,
+       "field": "sequence"
+      },
+      {
+       "type": "int64",
+       "optional": true,
+       "field": "ts_us"
+      },
+      {
+       "type": "int64",
+       "optional": true,
+       "field": "ts_ns"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "field": "schema"
+      },
+      {
+       "type": "string",
+       "optional": false,
+       "field": "table"
+      },
+      {
+       "type": "int64",
+       "optional": true,
+       "field": "txId"
+      },
+      {
+       "type": "int64",
+       "optional": true,
+       "field": "lsn"
+      },
+      {
+       "type": "int64",
+       "optional": true,
+       "field": "xmin"
+      }
+     ],
+     "optional": false,
+     "name": "io.debezium.connector.postgresql.Source",
+     "version": 1,
+     "field": "source"
+    },
+    {
+     "type": "struct",
+     "fields": [
+      {
+       "type": "string",
+       "optional": false,
+       "field": "id"
+      },
+      {
+       "type": "int64",
+       "optional": false,
+       "field": "total_order"
+      },
+      {
+       "type": "int64",
+       "optional": false,
+       "field": "data_collection_order"
+      }
+     ],
+     "optional": true,
+     "name": "event.block",
+     "version": 1,
+     "field": "transaction"
+    },
+    {
+     "type": "string",
+     "optional": false,
+     "field": "op"
+    },
+    {
+     "type": "int64",
+     "optional": true,
+     "field": "ts_ms"
+    },
+    {
+     "type": "int64",
+     "optional": true,
+     "field": "ts_us"
+    },
+    {
+     "type": "int64",
+     "optional": true,
+     "field": "ts_ns"
+    }
+   ],
+   "optional": false,
+   "name": "cdc.public.novisto_consumption.Envelope",
+   "version": 2
+  },
+  "payload": {
+   "before": {
+    "consumption_id": 9999,
+    "beer_id": 1,
+    "employee_team": "Fixture",
+    "quantity_l": "0.250",
+    "consumed_at": "2026-10-27T17:26:56.492053Z",
+    "office": "Paris",
+    "updated_at": "2026-10-27T17:26:56.492053Z"
+   },
+   "after": {
+    "consumption_id": 9999,
+    "beer_id": 1,
+    "employee_team": "Fixture",
+    "quantity_l": "0.750",
+    "consumed_at": "2026-10-27T17:26:56.492053Z",
+    "office": "Paris",
+    "updated_at": "2026-10-27T17:26:56.492053Z"
+   },
+   "source": {
+    "version": "3.3.1.Final",
+    "connector": "postgresql",
+    "name": "cdc",
+    "ts_ms": 1793122016496,
+    "snapshot": "false",
+    "db": "brewery",
+    "sequence": "[\"26777216\",\"26777216\"]",
+    "ts_us": 1793122016496218,
+    "ts_ns": 1793122016496218000,
+    "schema": "public",
+    "table": "novisto_consumption",
+    "txId": 760,
+    "lsn": 26777216,
+    "xmin": null
+   },
+   "transaction": null,
+   "op": "u",
+   "ts_ms": 1793122016558,
+   "ts_us": 1793122016558280,
+   "ts_ns": 1793122016558280164
+  }
+ }
+}

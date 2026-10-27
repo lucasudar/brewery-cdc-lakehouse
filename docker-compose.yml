@@ -6,6 +6,11 @@ x-s3-env: &s3-env
   AWS_SECRET_ACCESS_KEY: lakehouse-secret
   AWS_REGION: us-east-1
 
+x-lakehouse-env: &lakehouse-env
+  <<: *s3-env
+  CATALOG_URI: http://iceberg-rest:8181
+  S3_ENDPOINT: http://seaweedfs:8333
+
 services:
   postgres:
     image: postgres:16
@@ -129,6 +134,20 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+
+  ingestor:
+    build: ./services/ingestor
+    image: lakehouse/ingestor:local
+    container_name: ingestor
+    depends_on:
+      connect-init: { condition: service_completed_successfully }
+      iceberg-rest: { condition: service_healthy }
+    environment:
+      <<: *lakehouse-env
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      FLUSH_INTERVAL_S: "5"
+    restart: unless-stopped
+    mem_limit: 512m
 
 volumes:
   redpanda-data:
