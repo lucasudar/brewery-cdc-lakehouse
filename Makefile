@@ -27,9 +27,11 @@ topics: ## List CDC topics with message counts
 
 test: ## Run unit + integration tests (no Docker needed)
 	cd services/ingestor && uv run --frozen pytest -q
+	cd services/api && uv run --frozen pytest -q
 
 lint: ## Ruff lint + format check
 	cd services/ingestor && uv run --frozen ruff check src tests && uv run --frozen ruff format --check src tests
+	cd services/api && uv run --frozen ruff check src tests && uv run --frozen ruff format --check src tests
 	cd transform && uv run --frozen ruff check src && uv run --frozen ruff format --check src
 
 dbt-build: ## Run dbt models + data tests inside the transformer container (current snapshots)

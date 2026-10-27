@@ -161,6 +161,19 @@ services:
     restart: unless-stopped
     mem_limit: 1g
 
+  api:
+    build: ./services/api
+    image: lakehouse/api:local
+    container_name: api
+    depends_on:
+      iceberg-rest: { condition: service_healthy }
+    environment:
+      <<: *lakehouse-env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    mem_limit: 512m
+
 volumes:
   redpanda-data:
   seaweedfs-data:
