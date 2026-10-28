@@ -2,7 +2,7 @@ SHELL := /bin/bash
 COMPOSE := docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help up down reset ps logs topics test lint dbt-build
+.PHONY: help up down reset demo ps logs topics test lint dbt-build
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -15,6 +15,9 @@ down: ## Stop everything, keep state (topics, offsets, Iceberg tables)
 
 reset: ## Stop everything and wipe all state (Postgres re-seeds on next `make up`)
 	$(COMPOSE) down -v --remove-orphans
+
+demo: ## Apply scripts/simulate_changes.sql and show the changes reaching the API (measures latency)
+	./scripts/demo.sh
 
 ps: ## Show service status
 	$(COMPOSE) ps -a

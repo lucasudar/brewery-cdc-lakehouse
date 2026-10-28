@@ -25,6 +25,9 @@ services:
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
       - ./data:/data:ro
+      # Persist the source (and its replication slot) like every other stateful service, so that
+      # `make down && make up` keeps Postgres, Kafka offsets and Iceberg consistent with each other.
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U novisto -d brewery"]
       interval: 5s
@@ -110,25 +113,39 @@ services:
       timeout: 3s
       retries: 30
 
+  catalog-db:
+    image: postgres:16
+    container_name: catalog-db
+    environment:
+      POSTGRES_USER: iceberg
+      POSTGRES_PASSWORD: iceberg
+      POSTGRES_DB: iceberg_catalog
+    volumes:
+      - catalog-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iceberg -d iceberg_catalog"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   iceberg-rest:
-    image: apache/iceberg-rest-fixture:1.10.1
+    build: ./infra/iceberg-rest
+    image: lakehouse/iceberg-rest:local
     container_name: iceberg-rest
     depends_on:
       seaweedfs: { condition: service_healthy }
+      catalog-db: { condition: service_healthy }
     environment:
       <<: *s3-env
       CATALOG_WAREHOUSE: s3://warehouse/
       CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
       CATALOG_S3_ENDPOINT: http://seaweedfs:8333
       CATALOG_S3_PATH__STYLE__ACCESS: "true"
-      # Persist catalog state across restarts (the fixture defaults to in-memory sqlite).
-      CATALOG_URI: jdbc:sqlite:file:/home/iceberg/iceberg_catalog.db
+      CATALOG_URI: jdbc:postgresql://catalog-db:5432/iceberg_catalog
       CATALOG_JDBC_USER: iceberg
       CATALOG_JDBC_PASSWORD: iceberg
     ports:
       - "8181:8181"
-    volumes:
-      - iceberg-catalog:/home/iceberg  # image dir is owned by uid 1000, so the named volume inherits it
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8181/v1/config >/dev/null"]
       interval: 5s
@@ -175,6 +192,7 @@ services:
     mem_limit: 512m
 
 volumes:
+  postgres-data:
   redpanda-data:
   seaweedfs-data:
-  iceberg-catalog:
+  catalog-db-data:
