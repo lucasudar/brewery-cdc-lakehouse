@@ -1,59 +1,128 @@
-# Novisto: Senior Data Engineer Take-Home
+# Brewery lakehouse: near-real-time CDC
 
-**Time budget: about 2 hours.** We care about your judgment, not how many lines you typed.
+Postgres changes (inserts, updates, hard deletes) stream through **Debezium → Redpanda** into
+**Apache Iceberg** (bronze changelog + silver current state). **dbt** builds a gold mart from them, and
+**FastAPI** serves all of it with auto-generated OpenAPI docs. Measured end to end: **≈ 5–7 s** from a
+Postgres commit to the API, against a 60 s target.
 
-## The problem
+![Architecture](docs/diagrams/1-architecture.png)
 
-Build a small **near-real-time CDC pipeline**:
+- Design and trade-offs: [docs/DESIGN.md](docs/DESIGN.md)
+- AI usage: [docs/AI_USAGE.md](docs/AI_USAGE.md)
+- The original assignment: [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md)
 
-```
-Postgres (source) ──CDC──▶ Open table format (Iceberg) ──▶ Transformation ──▶ REST or GraphQL API
-```
+## Run it
 
-We provide a Postgres database with two tables (`beer_factory`, `novisto_consumption`). Changes made in Postgres should flow into a lakehouse table format and be queryable through an API you expose.
-
-## What's provided
-
-```
-docker-compose.yml          Postgres 16 with wal_level=logical, seeded on first start
-db/init.sql                 Schema + seed (REPLICA IDENTITY FULL already set)
-data/                       CSV sample data + data dictionary
-scripts/simulate_changes.sql  INSERT / UPDATE / DELETE used to test your pipeline
-docs/*_TEMPLATE.md          Templates for your written deliverables
-```
+Requirements: **Docker Desktop and `make`**. Nothing else on the host: tests, lint and diagrams also run
+in containers. Images are multi-arch (arm64 + amd64) and pinned. The stack uses about **2.1 GB RAM**.
 
 ```bash
-docker compose up -d
-docker compose exec postgres psql -U novisto -d brewery -c "select count(*) from beer_factory;"
+make up      # build + start everything, returns when all services are healthy (~40 s warm, longer on first build)
+make demo    # apply scripts/simulate_changes.sql and watch every change reach the API
 ```
 
-## Requirements
+`make demo` output (fresh state):
 
-1. **CDC ingestion.** Capture inserts, **updates and deletes** from both tables.
-2. **Open table format.** Land the data in **Apache Iceberg** (Delta or Hudi are acceptable if you justify the choice), on local disk or local object storage (e.g. MinIO).
-3. **Transformation.** At least one modelled table, e.g. litres consumed per beer style per day, joined with factory data.
-4. **Query API.** REST or GraphQL with endpoints for the current state of each source table and the transformed table.
-5. **Freshness.** After running `scripts/simulate_changes.sql`, the changes are visible through the API within **~60 seconds**.
-6. **One-command run.** `make up` (or `docker compose up`) starts everything; `make demo` (or a documented script) shows the changes flowing end to end.
+```
+==> Polling the API until every change is visible
+  ✔ INSERT beer 'CDC Test Saison'        (silver.beer_factory)  visible after   3.8s
+  ✔ UPDATE beer 1 abv -> 9.9             (silver.beer_factory)  visible after   3.8s
+  ✔ INSERT its consumption, 0.5 l        (silver.novisto_consumption)  visible after   4.3s
+  ✔ UPDATE consumption 10 -> 2.0 l       (silver.novisto_consumption)  visible after   4.3s
+  ✔ DELETE consumption 20 -> 404         (silver.novisto_consumption)  visible after   4.3s
+  ✔ Saison litres up in today's mart     (gold.daily_style_consumption)  visible after   7.0s
 
-### Stack
+End to end: every change visible through the API after 7.0s (target: 60s)
+```
 
-**Your choice.** Any tool or language is fine (Debezium, Kafka/Redpanda, Flink, Spark, RisingWave, PyIceberg, DuckDB, dbt, FastAPI, ...), under these constraints:
+The demo fails with a non-zero exit code if any change is not visible within 60 s. You can run it again
+and again; the checks compare against the state before each run.
 
-- **Open-source only, runs fully locally.** No SaaS, no cloud accounts, no free tiers.
-- It must run on our machine: **macOS on Apple Silicon (arm64), 16 GB RAM, Docker Desktop.** Mind image architectures and memory use.
-- Pin your versions.
+| Target | What it does |
+|---|---|
+| `make up` / `make down` | start / stop; `down` keeps all state (Postgres, topics, offsets, Iceberg) |
+| `make reset` | stop and wipe every volume; Postgres re-seeds from `data/` on the next `up` |
+| `make demo` | end-to-end demo with latency measurement |
+| `make test` | 37 unit + integration tests (ingestor, API) against a real local Iceberg catalog |
+| `make lint` | ruff lint + format check for all Python projects |
+| `make dbt-build` | run the dbt models + 23 data tests in the transformer container |
+| `make diagrams` | regenerate `docs/diagrams/*.png` from `gen.py` (draw.io, with a layout check) |
+| `make ps` / `make logs` / `make topics` | status, logs, Kafka topics |
 
-### Out of scope
+## API
 
-Auth, cloud deployment, UI, high test coverage, production hardening. **A small pipeline that works beats an ambitious one that's broken.**
+Swagger UI: **http://localhost:8000/docs** · ReDoc: http://localhost:8000/redoc · spec: `/openapi.json`
 
-## Deliverables
+| Endpoint | Returns |
+|---|---|
+| `GET /v1/beers` (`style`, `factory_site`, `limit`, `offset`) | current state of `beer_factory` |
+| `GET /v1/beers/{beer_id}` | one beer, 404 if it does not exist |
+| `GET /v1/consumption` (`beer_id`, `office`, `employee_team`, `consumed_from`, `consumed_to`, paging) | current state of `novisto_consumption` (deleted rows are gone) |
+| `GET /v1/consumption/{consumption_id}` | one event, 404 if deleted or unknown |
+| `GET /v1/metrics/daily-style-consumption` (`date_from`, `date_to`, `style`, `factory_site`, paging) | gold mart: litres per UTC day × style × factory site |
+| `GET /freshness` | per table: snapshot, commit time, source→table latency; gold lineage and `up_to_date` |
+| `GET /health` | liveness + catalog reachability |
 
-1. **A git repository** (link to a public or private repo, or a zip) with a README covering how to run and how to demo.
-2. **`docs/DESIGN.md`** (≤ 2 pages), from `docs/DESIGN_TEMPLATE.md`.
-3. **`docs/AI_USAGE.md`** (short), from `docs/AI_USAGE_TEMPLATE.md`.
+Every response is computed from a single Iceberg snapshot and says which one:
 
-## What happens next
+```bash
+$ curl -s localhost:8000/v1/beers/1
+{"data":{"beer_id":1,"name":"Northern Stout #1","style":"Stout","abv":9.9,"batch_size_l":500,
+ "produced_at":"2026-09-01T12:00:00Z","factory_site":"Sherbrooke","updated_at":"2026-10-27T18:44:07.360Z"},
+ "meta":{"table":"silver.beer_factory","snapshot_id":6911727836290382096,"as_of":"2026-10-27T18:44:12.283Z"}}
+```
 
-We'll run your repo on our laptop, then hold a **live session** where you walk us through it and we change things together, e.g. restart components or alter the schema.
+## What runs
+
+| Service | Image / code | Port | Role |
+|---|---|---|---|
+| `postgres` | `postgres:16` | 5432 | source (`wal_level=logical`) |
+| `redpanda` | `redpandadata/redpanda:v25.3.18` | 19092 | Kafka API log: CDC topics, DLQ, Connect state |
+| `connect` + `connect-init` | `quay.io/debezium/connect:3.3.1.Final` | 8083 | Debezium Postgres connector, registered idempotently (`PUT`) |
+| `seaweedfs` | `chrislusf/seaweedfs:4.51` | 8333 | S3 object storage, bucket `warehouse` |
+| `catalog-db` + `iceberg-rest` | `postgres:16`, `apache/iceberg-rest-fixture:1.10.1` + pgJDBC 42.7.14 | 8181 | Iceberg REST catalog on a Postgres JDBC backend |
+| `ingestor` | `services/ingestor` (Python 3.12, PyIceberg 0.12) | – | Kafka → Iceberg bronze + silver |
+| `transformer` | `transform/` (dbt-core 1.12, dbt-duckdb 1.11, DuckDB 2.0) | – | silver → gold on every new snapshot |
+| `api` | `services/api` (FastAPI 0.162, Pydantic 2) | 8000 | REST API |
+
+```
+services/ingestor/   envelope.py (Debezium → typed rows) · batch.py (replay skip, dedup, LSN guard)
+                     iceberg_writer.py (commits, schema evolution, maintenance) · main.py (consumer loop, DLQ)
+transform/           dbt project (models/, tests/, macros/) + src/transformer/runner.py (write-audit-publish)
+services/api/        lakehouse.py (snapshot-cached reads) · schemas.py (models + examples) · routes.py
+infra/               Debezium connector config, SeaweedFS credentials, REST catalog image
+scripts/             simulate_changes.sql (given) · demo.sh + demo_check.py
+docs/                DESIGN.md · AI_USAGE.md · diagrams/ (gen.py → architecture.drawio → PNGs)
+```
+
+## Things to try live
+
+```bash
+# Restart anything: progress lives in Iceberg snapshots and Kafka, so nothing is lost or duplicated
+docker compose restart connect ingestor transformer api && make demo
+docker compose kill -s SIGKILL ingestor && docker compose up -d ingestor
+
+# Schema change: the new column is in Iceberg and in the API a few seconds later
+docker compose exec postgres psql -U novisto -d brewery \
+  -c "ALTER TABLE beer_factory ADD COLUMN ibu INTEGER" -c "UPDATE beer_factory SET ibu = 40 WHERE beer_id = 2"
+curl -s localhost:8000/v1/beers/2
+
+# Data quality gate: a negative quantity fails a dbt test, gold keeps serving the last good version
+docker compose exec postgres psql -U novisto -d brewery -c "UPDATE novisto_consumption SET quantity_l = -1 WHERE consumption_id = 11"
+docker compose logs transformer | grep 'not published'
+
+# Look inside
+curl -s localhost:8000/freshness
+docker compose exec redpanda rpk topic consume cdc.public.beer_factory -o -1 -n 1
+docker compose logs ingestor | grep 'batch committed'
+```
+
+## Troubleshooting
+
+- **Port already in use** (5432, 8000, 8083, 8181, 8333, 19092): stop the other process or change the
+  host port in `docker-compose.yml`.
+- **`make up` times out on the first run**: images are still downloading or building. Run it again;
+  it is idempotent.
+- **Start from scratch**: `make reset && make up`.
+- **Something is unhealthy**: `make ps`, then `docker compose logs <service>`. The ingestor and
+  transformer log one JSON line per batch or publish.
