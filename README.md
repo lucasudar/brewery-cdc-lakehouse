@@ -8,6 +8,7 @@ Postgres commit to the API, against a 60 s target.
 ![Architecture](docs/diagrams/1-architecture.png)
 
 - Design and trade-offs: [docs/DESIGN.md](docs/DESIGN.md)
+- How a change is applied exactly once and recovered after a crash: [diagram](docs/diagrams/2-exactly-once.png)
 - AI usage: [docs/AI_USAGE.md](docs/AI_USAGE.md)
 - The original assignment: [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md)
 
@@ -16,12 +17,18 @@ Postgres commit to the API, against a 60 s target.
 Requirements: **Docker Desktop and `make`**. Nothing else on the host: tests, lint and diagrams also run
 in containers. Images are multi-arch (arm64 + amd64) and pinned. The stack uses about **2.1 GB RAM**.
 
+From a clean state, one line:
+
 ```bash
-make up      # build + start everything, returns when all services are healthy (~40 s warm, longer on first build)
-make demo    # apply scripts/simulate_changes.sql and watch every change reach the API
+make reset && make up && make demo
 ```
 
-`make demo` output (fresh state):
+- `make reset` wipes any previous state (containers and volumes), so the demo starts from the seed data.
+- `make up` builds and starts everything and returns once all services are healthy (about 40 s; the
+  first run also pulls and builds images).
+- `make demo` applies `scripts/simulate_changes.sql` and watches every change reach the API.
+
+Expected output:
 
 ```
 ==> Polling the API until every change is visible
@@ -35,8 +42,9 @@ make demo    # apply scripts/simulate_changes.sql and watch every change reach t
 End to end: every change visible through the API after 7.0s (target: 60s)
 ```
 
-The demo fails with a non-zero exit code if any change is not visible within 60 s. You can run it again
-and again; the checks compare against the state before each run.
+The demo exits non-zero if any change is not visible within 60 s. Running `make demo` again without
+`make reset` also passes, but the UPDATE/DELETE checks then show `0.0s`: those rows already have the new
+values from the previous run. Always measure latency from a fresh state.
 
 | Target | What it does |
 |---|---|

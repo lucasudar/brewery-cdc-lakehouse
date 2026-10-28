@@ -26,6 +26,8 @@ live on S3 (SeaweedFS).
 
 ## 3. CDC semantics
 
+![Exactly-once effect and recovery](diagrams/2-exactly-once.png)
+
 - **Representation.** Bronze is an append-only changelog (`op`, before/after JSON, `lsn`, `tx_id`,
   source and ingest timestamps), partitioned by day. Silver is current state: in one Iceberg transaction
   per table, the rows whose keys changed are deleted (copy-on-write) and their new versions appended. A
